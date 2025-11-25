@@ -14,57 +14,63 @@ suppressPackageStartupMessages({
 options(show.error.locations = TRUE)
 
 # MDS -------------------------------------------------------------------------
-eval_MDS <- function(dge.set, meta, cols_of_interest, prefix, suffix) {
+eval_MDS <- function(dge.set, meta, cols_of_interest, prefix, suffix, shape_label) {
   xy_dim <- max(dim(meta)[1]*0.10, 20)
   # MDS
   pcaData <- plotMDS(dge.set, ntop=Inf, returnData = TRUE, ntop=Inf)
   percentVar <- round(100 * pcaData$var.explained)
+  # Determine which column to use for shape based on shape_label
+  shape_data <- if (shape_label == "smart_id") meta$smart_id else meta$rep
   plot_data <- data.frame(
     x = pcaData$x,
     y = pcaData$y,
-    rep = meta$rep
+    rep = meta$rep,
+    smart_id = meta$smart_id
   )
   for (col in cols_of_interest) {
     plot_data[[col]] <- meta[[col]]
   }
   for (i in seq_along(cols_of_interest)) {
     col <- cols_of_interest[[i]]
-    plot <- ggplot(plot_data, aes(x = x, y = y, color=meta[[col]], shape=meta$rep)) +
-      geom_point(size = 2, alpha = 0.8) +
-      coord_fixed() + 
-      geom_text(aes(label = meta$rep), size=4, color = "black") +
+    plot <- ggplot(plot_data, aes(x = x, y = y, color=meta[[col]])) +
+      geom_point(size = 2, alpha = 0.8, shape = 16) +
+      coord_fixed() +
+      geom_text(aes(label = shape_data), size=3, color = "black") +
       xlab(paste0("PC1: ", percentVar[1], "% variance explained")) +
       ylab(paste0("PC2: ", percentVar[2], "% variance explained")) +
       ggtitle(paste0("MDS on fitted ", suffix, " data (all counts/edgeR)")) +
-      labs(color = col, shape="replicate")
+      labs(color = col)
     gfig(plot, str_c(prefix, "MDS_", i, "_", suffix), xy_dim, xy_dim)
     }
   }
 
 # PCA -------------------------------------------------------------------------
-eval_PCA <- function(dge.set, meta, cols_of_interest, prefix, suffix) {
+eval_PCA <- function(dge.set, meta, cols_of_interest, prefix, suffix, shape_label) {
   xy_dim <- max(dim(meta)[1]*0.10, 20)
   # PCA
   pcaData <- plotMDS(dge.set, ntop=Inf, returnData = TRUE, gene.selection="common")
   percentVar <- round(100 * pcaData$var.explained)
+  # Determine which column to use for shape based on shape_label
+  shape_data <- if (shape_label == "smart_id") meta$smart_id else meta$rep
   plot_data <- data.frame(
     x = pcaData$x,
     y = pcaData$y,
-    rep = meta$rep
+    rep = meta$rep,
+    smart_id = meta$smart_id
   )
   for (col in cols_of_interest) {
     plot_data[[col]] <- meta[[col]]
   }
   for (i in seq_along(cols_of_interest)) {
     col <- cols_of_interest[[i]]
-    plot <- ggplot(plot_data, aes(x = x, y = y, color=meta[[col]], shape=meta$rep)) +
-      geom_point(size = 2, alpha = 0.8) +
-      coord_fixed() + 
-      geom_text(aes(label = meta$rep), size=4, color = "black") +
+    plot <- ggplot(plot_data, aes(x = x, y = y, color=meta[[col]])) +
+      geom_point(size = 2, alpha = 0.8, shape = 16) +
+      coord_fixed() +
+      geom_text(aes(label = shape_data), size=3, color = "black") +
       xlab(paste0("PC1: ", percentVar[1], "% variance explained")) +
       ylab(paste0("PC2: ", percentVar[2], "% variance explained")) +
       ggtitle(paste0(suffix, ": PCA on fitted data (all counts/edgeR)")) +
-      labs(color = col, shape="replicate")
+      labs(color = col)
     gfig(plot, str_c(prefix, "PCA_", i, "_", suffix), xy_dim, xy_dim)
   }
 }
@@ -466,7 +472,8 @@ option_list <- list(
     make_option(c("-u", "--outer_join"    ), type="logical"  , default=FALSE                , metavar="boolean", help="Outer join RNA and Ribo reads, fill NAs with 0 expression."                                                     ),
     make_option(c("-l", "--cores"         ), type="integer"  , default=1                    , metavar="integer", help="Number of cores."                                                                       ),
     make_option(c("-a", "--contrast_cols" ), type="character", default="treatment_id"               , metavar="character", help="Column names from which contrasts are derived; separated by commas."          ),
-    make_option(c("-e", "--no_batch_factor"), type="logical" , default=FALSE,               , metavar="boolean", help="Don't create factors for batch date. Can be necessary to achieve full rank for some settings")
+    make_option(c("-e", "--no_batch_factor"), type="logical" , default=FALSE,               , metavar="boolean", help="Don't create factors for batch date. Can be necessary to achieve full rank for some settings"),
+    make_option(c("-p", "--shape_label"    ), type="character", default="rep"            , metavar="string" , help="Label for shape aesthetic in plots."                                         )
 )
 
 opt_parser <- OptionParser(option_list=option_list)
@@ -992,8 +999,8 @@ meta_of_interest <- c(contrast_grps, meta_of_interest)
 for (i in seq_along(seq_labels)) {
   sample_mask <- dge.meta$seq_type %in% seq_groups[[i]]
   samples_to_keep <- rownames(dge$samples[sample_mask,])
-  eval_MDS(dge[,samples_to_keep], dge.meta[sample_mask,], meta_of_interest, opt$outdir, seq_labels[i])
-  eval_PCA(dge[,samples_to_keep], dge.meta[sample_mask,], meta_of_interest, opt$outdir, seq_labels[i])
+  eval_MDS(dge[,samples_to_keep], dge.meta[sample_mask,], meta_of_interest, opt$outdir, seq_labels[i], opt$shape_label)
+  eval_PCA(dge[,samples_to_keep], dge.meta[sample_mask,], meta_of_interest, opt$outdir, seq_labels[i], opt$shape_label)
   eval_heatmap(cpm(dge[,samples_to_keep], normalized.lib.sizes = TRUE, log = TRUE, prior.count = 1), dge.meta[sample_mask,], meta_of_interest, opt$outdir, seq_labels[i])
   eval_gene_clusters(cpm(dge[,samples_to_keep], normalized.lib.sizes = TRUE, log = TRUE, prior.count = 1), dge.meta[sample_mask,], meta_of_interest, opt$outdir, seq_labels[i])
 }
