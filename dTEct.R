@@ -1730,10 +1730,11 @@ if (!is.null(opt$save_model)) {
     cat(paste0("Saving model to ", opt$save_model, "...\n"), file=log_file, append=TRUE)
     # List of objects to save to ensure the environment is reproducible
     # We save everything relevant for the contrast execution phase
-    save_objs <- c("fit_paired", "fit_rna", "dge", "meta.samples", "design", "design.rna",
+    save_objs <- c("fit_paired", "fit_rna", "dge", "meta.samples", "design",
                    "contrast_col", "uniq_dict", "comb_dict", "qc_types", "opt", "log_file", 
                    "tx.table", "feature2name", "contrast_grps", "seq_types")
-    # Only include translon_to_transcript_map if it exists (translon mode only)
+    # Only include these if they exist (depend on mode: ribo-only vs dual)
+    if (exists("design.rna")) save_objs <- c(save_objs, "design.rna")
     if (exists("translon_to_transcript_map")) save_objs <- c(save_objs, "translon_to_transcript_map")
     save(list = save_objs, file = opt$save_model)
     cat("Model saved successfully.\n", file=log_file, append=TRUE)
